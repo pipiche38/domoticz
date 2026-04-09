@@ -241,7 +241,9 @@ namespace Plugins {
 				result = m_sql.safe_query("SELECT Name FROM CustomImages WHERE (ID==%d)", self->ImageID);
 				if (!result.empty())
 				{
+					Py_BEGIN_ALLOW_THREADS
 					m_sql.safe_query("DELETE FROM CustomImages WHERE (ID==%d)", self->ImageID);
+					Py_END_ALLOW_THREADS
 
 					PyNewRef	pKey = PyLong_FromLong(self->ImageID);
 					if (PyDict_DelItem((PyObject*)self->pPlugin->m_ImageDict, pKey) == -1)
@@ -863,18 +865,22 @@ namespace Plugins {
 								sOptionValue = "";
 							else
 								sOptionValue = PyUnicode_AsUTF8(pValueDict);
-
+							
+							Py_BEGIN_ALLOW_THREADS
 							m_sql.safe_query(
 								"INSERT INTO DeviceStatus (HardwareID, OrgHardwareID, DeviceID, Unit, Type, SubType, SwitchType, Used, SignalLevel, BatteryLevel, Name, nValue, sValue, CustomImage, Description, Color, Options) "
 								"VALUES (%d, %d, '%q', %d, %d, %d, %d, %d, 12, 255, '%q', 0, '%q', %d, '%q', '%q', '%q')",
 								self->HwdID, 0, sDeviceID.c_str(), self->Unit, self->Type, self->SubType, self->SwitchType, self->Used, sLongName.c_str(), sValue.c_str(), self->Image, sDescription.c_str(), sColor.c_str(), sOptionValue.c_str());
+							Py_END_ALLOW_THREADS
 						}
 						else
 						{
+							Py_BEGIN_ALLOW_THREADS
 							m_sql.safe_query(
 								"INSERT INTO DeviceStatus (HardwareID, OrgHardwareID, DeviceID, Unit, Type, SubType, SwitchType, Used, SignalLevel, BatteryLevel, Name, nValue, sValue, CustomImage, Description, Color) "
 								"VALUES (%d, %d, '%q', %d, %d, %d, %d, %d, 12, 255, '%q', 0, '%q', %d, '%q', '%q')",
 								self->HwdID, 0, sDeviceID.c_str(), self->Unit, self->Type, self->SubType, self->SwitchType, self->Used, sLongName.c_str(), sValue.c_str(), self->Image, sDescription.c_str(), sColor.c_str());
+							Py_END_ALLOW_THREADS
 						}
 
 						result = m_sql.safe_query("SELECT ID FROM DeviceStatus WHERE (HardwareID==%d) AND (Unit==%d)", self->HwdID, self->Unit);
@@ -1031,12 +1037,16 @@ namespace Plugins {
 				// Notify MQTT and various push mechanisms and notifications
 				Py_BEGIN_ALLOW_THREADS
 				m_mainworker.sOnDeviceReceived(self->pPlugin->m_HwdID, self->ID, self->pPlugin->m_Name, NULL);
+				Py_END_ALLOW_THREADS
+				
+				Py_BEGIN_ALLOW_THREADS
 				m_notifications.CheckAndHandleNotification(DevRowIdx, self->HwdID, sDeviceID, sName, self->Unit, iType, iSubType, nValue, sValue);
-
+				Py_END_ALLOW_THREADS
+				
+				Py_BEGIN_ALLOW_THREADS
 				// Trigger any associated scene / groups
 				m_mainworker.CheckSceneCode(DevRowIdx, (const unsigned char)self->Type, (const unsigned char)self->SubType, nValue, sValue, "Python");
 				Py_END_ALLOW_THREADS
-
 			}
 
                         // Name change
@@ -1066,6 +1076,9 @@ namespace Plugins {
 	                                // Reset nValue and sValue when changing device types
         	                        Py_BEGIN_ALLOW_THREADS
                 	                m_sql.UpdateDeviceValue("nValue", 0, sID);
+									Py_END_ALLOW_THREADS
+	
+									Py_BEGIN_ALLOW_THREADS
                         	        m_sql.UpdateDeviceValue("sValue", stdsValue, sID);
                                 	Py_END_ALLOW_THREADS
 				}
@@ -1166,6 +1179,9 @@ namespace Plugins {
                                         std::string sLastUpdate = TimeToString(nullptr, TF_DateTime);
                                         Py_BEGIN_ALLOW_THREADS
                                         m_sql.UpdateDeviceValue("Options", iUsed, sID);
+										Py_END_ALLOW_THREADS
+
+										Py_BEGIN_ALLOW_THREADS
                                         m_sql.safe_query("UPDATE DeviceStatus SET Options='%q', LastUpdate='%q' WHERE (HardwareID==%d) and (Unit==%d)",
                                                 sOptionValue.c_str(), sLastUpdate.c_str(), self->HwdID, self->Unit);
                                         Py_END_ALLOW_THREADS
@@ -1200,7 +1216,9 @@ namespace Plugins {
 				result = m_sql.safe_query("SELECT Name FROM DeviceStatus WHERE (HardwareID==%d) AND (Unit==%d)", self->HwdID, self->Unit);
 				if (!result.empty())
 				{
+					Py_BEGIN_ALLOW_THREADS
 					m_sql.safe_query("DELETE FROM DeviceStatus WHERE (HardwareID==%d) AND (Unit==%d)", self->HwdID, self->Unit);
+					Py_END_ALLOW_THREADS
 
 					PyNewRef	pKey = PyLong_FromLong(self->Unit);
 					if (PyDict_DelItem((PyObject*)self->pPlugin->m_DeviceDict, pKey) == -1)
@@ -1229,18 +1247,21 @@ namespace Plugins {
 
 	PyObject* CDevice_touch(CDevice * self)
 	{
-		Py_BEGIN_ALLOW_THREADS
+		
 		if ((self->pPlugin) && (self->HwdID != -1) && (self->Unit != -1))
 		{
 			self->pPlugin->SetHeartbeatReceived();
 			std::string sID = std::to_string(self->ID);
+
+			Py_BEGIN_ALLOW_THREADS
 			m_sql.UpdateLastUpdate(sID);
+			Py_END_ALLOW_THREADS
 		}
 		else
 		{
 			_log.Log(LOG_ERROR, "Device touch failed, Device object is not associated with a plugin.");
 		}
-		Py_END_ALLOW_THREADS
+		
 		return CDevice_refresh(self);
 	}
 
