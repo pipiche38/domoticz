@@ -1037,12 +1037,16 @@ namespace Plugins {
 				// Notify MQTT and various push mechanisms and notifications
 				Py_BEGIN_ALLOW_THREADS
 				m_mainworker.sOnDeviceReceived(self->pPlugin->m_HwdID, self->ID, self->pPlugin->m_Name, NULL);
+				Py_END_ALLOW_THREADS
+				
+				Py_BEGIN_ALLOW_THREADS
 				m_notifications.CheckAndHandleNotification(DevRowIdx, self->HwdID, sDeviceID, sName, self->Unit, iType, iSubType, nValue, sValue);
-
+				Py_END_ALLOW_THREADS
+				
+				Py_BEGIN_ALLOW_THREADS
 				// Trigger any associated scene / groups
 				m_mainworker.CheckSceneCode(DevRowIdx, (const unsigned char)self->Type, (const unsigned char)self->SubType, nValue, sValue, "Python");
 				Py_END_ALLOW_THREADS
-
 			}
 
                         // Name change
@@ -1212,7 +1216,9 @@ namespace Plugins {
 				result = m_sql.safe_query("SELECT Name FROM DeviceStatus WHERE (HardwareID==%d) AND (Unit==%d)", self->HwdID, self->Unit);
 				if (!result.empty())
 				{
+					Py_BEGIN_ALLOW_THREADS
 					m_sql.safe_query("DELETE FROM DeviceStatus WHERE (HardwareID==%d) AND (Unit==%d)", self->HwdID, self->Unit);
+					Py_END_ALLOW_THREADS
 
 					PyNewRef	pKey = PyLong_FromLong(self->Unit);
 					if (PyDict_DelItem((PyObject*)self->pPlugin->m_DeviceDict, pKey) == -1)
